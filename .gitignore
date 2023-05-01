@@ -1,0 +1,16 @@
+.terraform.lock.hcl
+.terraform
+.idea
+*.d.ts
+*.js
+cdktf/node_modules
+cdktf.out
+cdktf.log
+*terraform.*.tfstate*
+.gen
+tsconfig.tsbuildinfo
+!jest.config.js
+!setup.js
+.DS_Store
+.yarn
+.env

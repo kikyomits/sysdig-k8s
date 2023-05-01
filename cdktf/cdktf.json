@@ -1,0 +1,15 @@
+{
+  "language": "typescript",
+  "app": "yarn ts-node src/main.ts",
+  "projectId": "cdktf-sentry",
+  "sendCrashReports": "false",
+  "terraformProviders": [
+    "hashicorp/aws",
+    "jianyuan/sentry@~> 0.11"
+  ],
+  "terraformModules": [],
+  "context": {
+    "excludeStackIdFromLogicalIds": "true",
+    "allowSepCharsInLogicalIds": "true"
+  }
+}
