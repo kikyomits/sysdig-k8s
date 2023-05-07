@@ -8,6 +8,9 @@ import { Namespace } from '@cdktf/provider-kubernetes/lib/namespace'
 import { KubernetesProvider } from '@cdktf/provider-kubernetes/lib/provider'
 import { Manifest } from '@cdktf/provider-kubernetes/lib/manifest'
 import * as path from 'path'
+import { ServiceAccount } from '@cdktf/provider-kubernetes/lib/service-account'
+import { ClusterRole } from '@cdktf/provider-kubernetes/lib/cluster-role'
+import { ClusterRoleBinding } from '@cdktf/provider-kubernetes/lib/cluster-role-binding'
 
 dotenv.config()
 
@@ -48,11 +51,19 @@ export class ApplicationStack extends TerraformStack {
 
         const nsSysdig = new Namespace(this, 'sysdig_namespace', {
             metadata: {
-                name: 'sysdig-agent'
+                name: 'sysdig-agent',
+                labels: {
+                    'pod-security.kubernetes.io/enforce': 'privileged',
+                    'pod-security.kubernetes.io/enforce-version': 'latest',
+                    'pod-security.kubernetes.io/audit': 'privileged',
+                    'pod-security.kubernetes.io/audit-version': 'latest',
+                    'pod-security.kubernetes.io/warn': 'privileged',
+                    'pod-security.kubernetes.io/warn-version': 'latest'
+                }
             }
         })
 
-        new Namespace(this, 'vote_namespace', {
+        const nsVote = new Namespace(this, 'vote_namespace', {
             metadata: {
                 name: 'vote'
             }
@@ -79,16 +90,25 @@ export class ApplicationStack extends TerraformStack {
                     value: 'au1'
                 },
                 {
-                    name: 'nodeAnalyzer.secure.vulnerabilityManagement.newEngineOnly',
+                    name: 'global.kspm.deploy',
                     value: 'true'
                 },
                 {
-                    name: 'global.kspm.deploy',
+                    name: 'agent.auditLog.enabled',
+                    value: 'true'
+                },
+                {
+                    name: 'nodeAnalyzer.secure.vulnerabilityManagement.newEngineOnly',
                     value: 'true'
                 },
                 {
                     name: 'nodeAnalyzer.nodeAnalyzer.benchmarkRunner.deploy',
                     value: 'false'
+                },
+
+                {
+                    name: 'kspmCollector.namespaces.excluded',
+                    value: 'kube-system'
                 },
                 {
                     name: 'ebpf.enabled',
@@ -101,6 +121,41 @@ export class ApplicationStack extends TerraformStack {
             new Manifest(this, filename, {
                 manifest: Fn.yamldecode(Fn.file(path.resolve(`./k8s/vote/${filename}`)))
             })
+        })
+
+        const clusterRole = new ClusterRole(this, 'too_strong_role', {
+            metadata: {
+                name: 'too-strong-role'
+            },
+            rule: [
+                {
+                    apiGroups: ['*'],
+                    resources: ['*'],
+                    verbs: ['*']
+                }
+            ]
+        })
+
+        const sa = new ServiceAccount(this, 'too_strong_sa', {
+            metadata: {
+                name: 'too-strong-sa',
+                namespace: nsVote.metadata.name
+            }
+        })
+
+        new ClusterRoleBinding(this, 'too_strong_role_to_too_strong_sa', {
+            metadata: {
+                name: 'too-strong-role-to-too-strong-sa'
+            },
+            roleRef: {
+                kind: 'ClusterRole',
+                apiGroup: 'rbac.authorization.k8s.io',
+                name: clusterRole.metadata.name
+            },
+            subject: [{
+                kind: 'ServiceAccount',
+                name: sa.metadata.name
+            }]
         })
     }
 }
